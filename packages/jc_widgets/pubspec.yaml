@@ -24,6 +24,7 @@ dependencies:
   jc_service_wrapper:
     git:
       url: https://github.com/chzhhong97/jc_service_wrapper.git
+      ref: main
 
   flutter:
     sdk: flutter

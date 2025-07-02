@@ -12,19 +12,12 @@ dependencies:
   flutter_sticky_header:
   scrollview_observer:
   custom_refresh_indicator:
-  huawei_map:
-  google_maps_flutter:
   animated_widgets:
   flutter_staggered_grid_view:
   collection:
   rect_getter:
   loop_page_view:
   cross_fade:
-
-  jc_service_wrapper:
-    git:
-      url: https://github.com/chzhhong97/jc_service_wrapper.git
-      ref: main
 
   flutter:
     sdk: flutter

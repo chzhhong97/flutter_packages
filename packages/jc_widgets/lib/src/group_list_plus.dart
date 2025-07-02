@@ -246,6 +246,8 @@ class _GroupListPlusState<T, C>
 
     _tabController.dispose();
     _tabController = TabController(length: _displayList.value.keys.length, vsync: this);
+
+    currentGroupIndex.value = 0;
   }
 
   void _sortList() {

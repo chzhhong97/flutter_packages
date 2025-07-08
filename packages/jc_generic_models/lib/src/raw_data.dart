@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 
 class RawData{
   final Map<String, dynamic> _data;
@@ -26,7 +27,7 @@ class RawData{
       }
     }
     catch(e){
-
+      debugPrint("RawDataException: $e");
     }
 
     return {};
@@ -45,7 +46,7 @@ class RawData{
       }
     }
     catch(e){
-
+      debugPrint("RawDataException: $e");
     }
 
 
@@ -72,6 +73,11 @@ class RawData{
     if(value != null) _cahces[key] = value;
 
     return value;
+  }
+
+  void setData(String key, dynamic value) {
+    _data[key] = value;
+    _cahces[key] = value;
   }
 
   @override

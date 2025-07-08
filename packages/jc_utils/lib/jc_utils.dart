@@ -9,3 +9,4 @@ export 'src/event_handler.dart';
 export 'src/datetime_utils.dart';
 export 'src/storage_service.dart';
 export 'src/simple_sequence_task_manager.dart';
+export 'src/coroutine_with_result.dart';

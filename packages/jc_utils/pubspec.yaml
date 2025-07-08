@@ -12,6 +12,9 @@ dependencies:
   rxdart:
   intl:
   bloc_concurrency:
+  dio:
+  json_annotation:
+
   flutter:
     sdk: flutter
 

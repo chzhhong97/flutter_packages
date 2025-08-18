@@ -27,7 +27,7 @@ class MultilineText extends StatelessWidget {
       this.selectionColor,
         this.expandToMax = true,
         this.alignment = Alignment.topLeft
-      }) : texts = const [], spacing = const [];
+      }) : texts = const [], spacing = const [], hideEmptyText = false;
 
   const MultilineText.texts(this.texts,
       {super.key,
@@ -52,7 +52,8 @@ class MultilineText extends StatelessWidget {
         this.textHeightBehavior,
         this.selectionColor,
         this.expandToMax = true,
-        this.alignment = Alignment.topLeft
+        this.alignment = Alignment.topLeft,
+        this.hideEmptyText = false,
       }) : data = null;
 
   final List<Text> texts;
@@ -73,6 +74,7 @@ class MultilineText extends StatelessWidget {
   final TextHeightBehavior? textHeightBehavior;
   final Color? selectionColor;
   final bool expandToMax;
+  final bool hideEmptyText;
   final List<double> spacing;
 
   @override
@@ -163,15 +165,23 @@ class MultilineText extends StatelessWidget {
             mainAxisAlignment: mainAxisAlignment,
             children: [
               for(int i = 0; i < texts.length; i++)...[
-                texts[i],
-                if(i < spacing.length)
-                  SizedBox(height: spacing[i],),
+                ..._getMultiText(i),
               ]
             ],
           ),
         );
       },
     );
+  }
+
+  List<Widget> _getMultiText(int index){
+    bool isTextEmpty = texts[index].data == null || texts[index].data?.isEmpty == true;
+    if(hideEmptyText && isTextEmpty) return [];
+    return [
+      texts[index],
+      if(index < spacing.length)
+        SizedBox(height: spacing[index],),
+    ];
   }
 
   Size _getTextSize(BuildContext context, Text text, {double minWidth = 0, double maxWidth = double.infinity}){

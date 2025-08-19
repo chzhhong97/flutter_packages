@@ -43,7 +43,7 @@ typedef GridViewBuilder<T, C> = Widget Function(
     List<T> itemList,
     BoxConstraints constraints,
     void Function(BuildContext context) onContextCreated);
-typedef OnScroll = void Function(double offset, UserScrollNotification scrollNotification);
+typedef OnScroll = void Function(double offset);
 
 class GroupListPlus<T, C> extends StatefulWidget {
   final List<T> itemList;
@@ -74,8 +74,6 @@ class GroupListPlus<T, C> extends StatefulWidget {
   ///
   /// [isEmpty] will be true if this group item list is empty
   final GroupItemBuilder<C>? groupItemBuilder;
-  /// Builder for whole group list
-  final Widget? Function(List<Widget> children)? groupListBuilder;
 
   /// Separator Between Item in Group List
   final ItemSeparatorBuilder? groupListSeparatorBuilder;
@@ -85,7 +83,7 @@ class GroupListPlus<T, C> extends StatefulWidget {
 
   /// Separator Between Group List and Item List
   final Widget Function(BuildContext context)? listSeparatorBuilder;
-  final OnScroll? onScroll;
+  final OnScroll? onScrollOffset;
   final EdgeInsets groupListPadding;
   final EdgeInsets subListPadding;
   final EdgeInsets contentPadding;
@@ -128,14 +126,13 @@ class GroupListPlus<T, C> extends StatefulWidget {
     this.itemListContainer,
     this.groupListContainer,
     this.groupItemBuilder,
-    this.groupListBuilder,
     this.groupListSeparatorBuilder,
     this.groupSeparatorBuilder,
     this.listSeparatorBuilder,
     this.groupListPadding = EdgeInsets.zero,
     this.subListPadding = EdgeInsets.zero,
     this.contentPadding = EdgeInsets.zero,
-    this.onScroll,
+    this.onScrollOffset,
     this.axis = Axis.horizontal,
     this.groupScrollPhysics,
     this.listScrollPhysics,
@@ -168,14 +165,13 @@ class GroupListPlus<T, C> extends StatefulWidget {
     this.itemListContainer,
     this.groupListContainer,
     this.groupItemBuilder,
-    this.groupListBuilder,
     this.groupListSeparatorBuilder,
     this.groupSeparatorBuilder,
     this.listSeparatorBuilder,
     this.groupListPadding = EdgeInsets.zero,
     this.subListPadding = EdgeInsets.zero,
     this.contentPadding = EdgeInsets.zero,
-    this.onScroll,
+    this.onScrollOffset,
     this.axis = Axis.horizontal,
     this.groupScrollPhysics,
     this.listScrollPhysics,
@@ -456,7 +452,7 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
                             key: _listKey,
                             child: LayoutBuilder(
                               builder: (layoutContext, constraints) {
-                                return NotificationListener<UserScrollNotification>(
+                                return NotificationListener<ScrollNotification>(
                                   onNotification: _onScrollNotification,
                                   child: CustomScrollView(
                                     physics: widget.enabled
@@ -506,9 +502,9 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
         ));
   }
 
-  bool _onScrollNotification(UserScrollNotification notification) {
-    widget.onScroll
-        ?.call(_scrollUtil.scrollController.controller?.offset ?? 0, notification);
+  bool _onScrollNotification(ScrollNotification notification) {
+    widget.onScrollOffset
+        ?.call(_scrollUtil.scrollController.controller?.offset ?? 0);
 
     if (isAnimating) return true;
 
@@ -630,45 +626,39 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
             valueListenable: currentGroupIndex,
             builder: (BuildContext context, int value, Widget? child) {
 
-              List<Widget> children = [
-                for (int i = 0; i < dictionary.keys.length; i++) ...[
-                  InkWell(
-                    key: _keys[i],
-                    onTap: () => autoScrollTo(groupIndex: i),
-                    child: widget.groupItemBuilder?.call(
-                        context,
-                        i,
-                        dictionary.keys.elementAt(i),
-                        i == value,
-                        dictionary[dictionary.keys.elementAt(i)]
-                            ?.isNotEmpty !=
-                            true) ??
-                        Container(
-                          color: i == value ? Colors.red : Colors.white,
-                          child: Text(
-                            dictionary.keys.elementAt(i).toString(),
-                            style: TextStyle(
-                              color:
-                              i == value ? Colors.white : Colors.black,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                  ),
-                  if (i != dictionary.keys.length - 1 && widget.groupListBuilder == null)
-                    widget.groupListSeparatorBuilder?.call(context, i) ??
-                        const SizedBox(),
-                ]
-              ];
-
-              if(widget.groupListBuilder != null){
-                return widget.groupListBuilder!(children) ?? const SizedBox();
-              }
-
               return buildGroupLayout(context,
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
-                  children: children
+                  children: [
+                    for (int i = 0; i < dictionary.keys.length; i++) ...[
+                      InkWell(
+                        key: _keys[i],
+                        onTap: () => autoScrollTo(groupIndex: i),
+                        child: widget.groupItemBuilder?.call(
+                            context,
+                            i,
+                            dictionary.keys.elementAt(i),
+                            i == value,
+                            dictionary[dictionary.keys.elementAt(i)]
+                                ?.isNotEmpty !=
+                                true) ??
+                            Container(
+                              color: i == value ? Colors.red : Colors.white,
+                              child: Text(
+                                dictionary.keys.elementAt(i).toString(),
+                                style: TextStyle(
+                                  color:
+                                  i == value ? Colors.white : Colors.black,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                      ),
+                      if (i != dictionary.keys.length - 1)
+                        widget.groupListSeparatorBuilder?.call(context, i) ??
+                            const SizedBox(),
+                    ]
+                  ]
               );
             },
           ),
@@ -799,9 +789,6 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
     final config = widget.gridViewConfig!;
     final listItemCount = (itemList.length / config.crossAxisCount).ceil();
 
-    print("Group: $group");
-    print("OriginalItemLength: ${itemList.length}");
-    print("GridItemLength: $listItemCount");
     return SliverList.separated(
       itemBuilder: (context, itemIndex) {
         _scrollUtil.addGroupListContext(index, context);
@@ -831,7 +818,6 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
                 _getGridItemWidth(config.crossAxisCount, config.crossAxisSpacing, constraints.maxWidth)),
           ]
         ].whereType<Widget>().toList();
-        print("GenerateChildren: ${children.length}");
 
         if (children.isEmpty) return const SizedBox();
 

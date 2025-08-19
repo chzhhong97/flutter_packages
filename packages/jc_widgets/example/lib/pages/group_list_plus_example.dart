@@ -26,11 +26,11 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
       body: SafeArea(
         child: GroupListPlus<String, String>.gridView(
           itemList: List.generate(100, (i) => getRandomString(10)),
-          axis: Axis.horizontal,
+          axis: Axis.vertical,
           groupBy: (String element) => element[0].toUpperCase(),
           sortGroupBy: (a, b) => a.compareTo(b),
           gridViewConfig: GridViewConfig(
-            crossAxisCount: 3,
+            crossAxisCount: 2,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10
           ),
@@ -118,11 +118,6 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
             setState(() {});
           },
           groupListFlex: .2,
-          /*groupListBuilder: (children){
-            return Row(
-              children: children,
-            );
-          },*/
           scrollOffset: (offset){
             return ObserverUtils.calcPersistentHeaderExtent(
               key: _sliverAppBarKey,

@@ -24,30 +24,17 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: GroupListPlus<String, String>(
-          //itemList: List.generate(100, (i) => getRandomString(10)),
-          itemList: [],
+        child: GroupListPlus<String, String>.gridView(
+          itemList: List.generate(100, (i) => getRandomString(10)),
           axis: Axis.horizontal,
           groupBy: (String element) => element[0].toUpperCase(),
           sortGroupBy: (a, b) => a.compareTo(b),
-          subListPadding: EdgeInsets.all(10),
-          sliverGridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10
+          gridViewConfig: GridViewConfig(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10
           ),
-          groupTabBarBuilder: (context, controller, groups, onTap){
-            return TabBar(
-              controller: controller,
-              isScrollable: true,
-              labelColor: Colors.black,
-              tabAlignment: TabAlignment.start,
-              tabs: groups.map((e) => Tab(
-                text: e,
-              )).toList(),
-              onTap: onTap,
-            );
-          },
+          subListPadding: EdgeInsets.all(10),
           groupItemBuilder: (context, index, item, isSelected, isEmpty){
             return Container(
               height: 100,
@@ -80,26 +67,9 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
               ),
             );
           },
-          itemListBuilder: (context, groupIndex, group, itemList, _){
-            return SliverList.separated(
-                itemCount: itemList.length,
-                itemBuilder: (context, index){
-                  _(context);
-                  return Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                        color: Colors.black12,
-                        borderRadius: BorderRadius.circular(8)
-                    ),
-                    child: Text(itemList[index]),
-                  );
-                },
-                separatorBuilder: (context, index) => SizedBox()
-            );
-          },
-          itemBuilder: (context, index, group, item){
+          itemBuilder: (context, index, group, item, width){
             return Container(
-              height: 150,
+              height: width,
               decoration: BoxDecoration(
                   color: Colors.black12,
                   borderRadius: BorderRadius.circular(8)
@@ -107,12 +77,12 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
               child: Text(item),
             );
           },
-          itemSeparatorBuilder: (context, index){
+          /*itemSeparatorBuilder: (context, index){
             return Container(
               height: 1,
               color: Colors.black,
             );
-          },
+          },*/
           itemListContainer: (context, child){
             return Container(
               color: Colors.white,
@@ -144,30 +114,15 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
               ],
             );
           },
-          groupSeparatorBuilder: (context, index){
-            if(index % 2 == 0){
-              return Container(
-                color: Colors.blue,
-                alignment: Alignment.center,
-                height: 100,
-                child: Text(
-                  'This is a big list separator',
-                ),
-              );
-            }
-            return Container(
-              color: Colors.blue,
-              alignment: Alignment.center,
-              child: Text(
-                'This is a list separator',
-              ),
-            );
+          onRefresh: () async {
+            setState(() {});
           },
-          onRefresh: () async {},
           groupListFlex: .2,
-          onScrollOffset: (offset){
-            print(offset);
-          },
+          /*groupListBuilder: (children){
+            return Row(
+              children: children,
+            );
+          },*/
           scrollOffset: (offset){
             return ObserverUtils.calcPersistentHeaderExtent(
               key: _sliverAppBarKey,
@@ -184,7 +139,7 @@ class _GroupListPlusExampleState extends State<GroupListPlusExample> with Ticker
                 child: Padding(
                   padding: EdgeInsets.all(4),
                   child: IconButton(
-                      onPressed: (){},
+                      onPressed: () => Navigator.pop(this.context),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.white,
                       ),

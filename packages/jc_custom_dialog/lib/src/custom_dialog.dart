@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:jc_utils/jc_utils.dart';
 
@@ -65,7 +66,16 @@ class CustomDialog{
     Completer<BuildContext> completer = Completer();
     if(settings.addToQueue) {
       _contextQueue.add(completer);
+      _debugLog("Add completer to queue, len: ${_contextQueue.length}");
     }
+
+    completer.future.then((context){
+      settings.startDismissOperation(onDone: (){
+        if(context.mounted){
+          Navigator.of(context).pop(false);
+        }
+      });
+    });
 
     final result = await showDialog(
         context: context ?? _globalKey!.currentContext!,
@@ -73,19 +83,18 @@ class CustomDialog{
         barrierColor: settings.barrierColor,
         builder: (c){
           WidgetsBinding.instance.addPostFrameCallback((d){
+            if(!_contextQueue.contains(completer) && settings.addToQueue) return;
+            _debugLog("Complete completer with context, mounted: ${c.mounted}");
             if(!completer.isCompleted) completer.complete(c);
-            settings.startDismissOperation(onDone: (){
-              //_blockingStack.remove(c);
-              _contextQueue.remove(completer);
-              if(c.mounted){
-                Navigator.of(c).pop(false);
-              }
-            });
           });
           return _buildDialog(
               c,
               settings.builder == null && settings.completeBuilder == null ? settings.copyWith(canPop: false) : settings,
-            onPop: () => _contextQueue.remove(completer)
+            onPop: () {
+              _contextQueue.remove(completer);
+              _debugLog(
+                  "Remove completer from queue, len: ${_contextQueue.length}");
+            }
           );
         }
     );
@@ -96,10 +105,12 @@ class CustomDialog{
   }
 
   static Future<void> hide({bool absolute = false}) async {
+    _debugLog("Register hide task");
     return _sequenceHideTask.register(Future(() async => _hide(absolute: absolute))).future;
   }
 
   static Future<void> _hide({bool absolute = false, bool sync = false}) async {
+    _debugLog("Start hide task, len: ${_contextQueue.length}");
     if(absolute){
       final List<Completer<BuildContext>> toKeep = [];
       for(var item in _contextQueue){
@@ -122,7 +133,9 @@ class CustomDialog{
 
     if(sync) _contextQueue.remove(completer);
 
+    _debugLog("Await completer context");
     final context = await completer.future;
+    _debugLog("Get context from completer, mounted: ${context.mounted}");
     if(context.mounted){
       Navigator.of(context).pop(false);
     }
@@ -271,6 +284,10 @@ class CustomDialog{
         ],
       ),
     );
+  }
+
+  static _debugLog(Object object) {
+    if (kDebugMode) debugPrint("CustomDialogLog: $object");
   }
 }
 

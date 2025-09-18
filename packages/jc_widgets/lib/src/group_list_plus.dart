@@ -821,10 +821,27 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
 
         if (children.isEmpty) return const SizedBox();
 
-        return Row(
+        final row = Row(
           mainAxisAlignment: config.mainAxisAlignment,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: config.crossAxisAlignment,
           children: children,
+        );
+
+        if(!config.intrinsicHeight){
+          return row;
+        }
+
+        return Table(
+          children: [
+            TableRow(
+                children: [
+                  TableCell(
+                    verticalAlignment: TableCellVerticalAlignment.intrinsicHeight,
+                    child: row,
+                  )
+                ]
+            )
+          ],
         );
       },
       separatorBuilder: (context, index) {
@@ -1147,6 +1164,8 @@ class GridViewConfig {
   final bool addRepaintBoundaries;
   final bool addSemanticIndexes;
   final MainAxisAlignment mainAxisAlignment;
+  final CrossAxisAlignment crossAxisAlignment;
+  final bool intrinsicHeight;
 
   GridViewConfig(
       {required this.crossAxisCount,
@@ -1156,5 +1175,8 @@ class GridViewConfig {
       this.addAutomaticKeepAlives = true,
       this.addRepaintBoundaries = true,
       this.addSemanticIndexes = true,
-      this.mainAxisAlignment = MainAxisAlignment.start});
+      this.mainAxisAlignment = MainAxisAlignment.start,
+      this.crossAxisAlignment = CrossAxisAlignment.start,
+        this.intrinsicHeight = false,
+      });
 }

@@ -87,7 +87,7 @@ class GroupListPlus<T, C> extends StatefulWidget {
   final EdgeInsets groupListPadding;
   final EdgeInsets subListPadding;
   final EdgeInsets contentPadding;
-  final Axis axis;
+  final Axis? axis;
   final ScrollPhysics? groupScrollPhysics;
   final ScrollPhysics? listScrollPhysics;
   final RefreshIndicatorSettings refreshSettings;
@@ -594,6 +594,7 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
   }
 
   Widget _buildGroupList(int groupFlex) {
+    if(widget.axis == null) return const SizedBox();
     if(groupFlex <= 0) return const SizedBox();
     if (_displayList.value.isEmpty) return const SizedBox();
 
@@ -617,7 +618,7 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
 
         return SingleChildScrollView(
           padding: widget.groupListPadding,
-          scrollDirection: widget.axis,
+          scrollDirection: widget.axis!,
           controller: _groupScrollController,
           physics: widget.enabled
               ? widget.groupScrollPhysics

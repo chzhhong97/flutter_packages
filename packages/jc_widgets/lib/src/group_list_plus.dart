@@ -503,10 +503,10 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
+    if (isAnimating) return true;
+
     widget.onScrollOffset
         ?.call(_scrollUtil.scrollController.controller?.offset ?? 0);
-
-    if (isAnimating) return true;
 
     int lastIndex = _displayList.value.keys.length - 1;
     var visibleGroup = _getVisibleItemsIndex();

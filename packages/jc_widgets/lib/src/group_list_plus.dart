@@ -107,7 +107,7 @@ class GroupListPlus<T, C> extends StatefulWidget {
       nestedScrollViewBodyBuilder;
 
   /// Grid View Config for grid view
-  final GridViewConfig? gridViewConfig;
+  final GridViewConfig<T>? gridViewConfig;
   final GridItemBuilder<T, C>? gridItemBuilder;
   final GridViewBuilder<T, C>? gridViewBuilder;
 
@@ -154,7 +154,7 @@ class GroupListPlus<T, C> extends StatefulWidget {
     super.key,
     required this.itemList,
     required this.groupBy,
-    required GridViewConfig gridViewConfig,
+    required GridViewConfig<T> this.gridViewConfig,
     this.groupList = const [],
     this.sortGroupBy,
     this.sortGroupItemBy,
@@ -185,8 +185,7 @@ class GroupListPlus<T, C> extends StatefulWidget {
     this.groupTabBarBuilder,
     this.nestedScrollViewBodyBuilder = _defaultNestedScrollViewBodyBuilder,
     this.enabled = true,
-  })  : gridViewConfig = gridViewConfig,
-        gridItemBuilder = itemBuilder,
+  })  : gridItemBuilder = itemBuilder,
         gridViewBuilder = itemListBuilder,
         itemBuilder = null,
         itemListBuilder = null,
@@ -773,6 +772,128 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
     );
   }
 
+  Widget _buildGridViewV2(BuildContext context, int index, C group,
+      List<T> itemList, BoxConstraints constraints) {
+    final config = widget.gridViewConfig!;
+    final crossAxisCount = config.crossAxisCount;
+
+    final cellWidth = _getGridItemWidth(
+      crossAxisCount,
+      config.crossAxisSpacing,
+      constraints.maxWidth,
+    );
+
+    final occupied = <Offset, bool>{};
+
+    GridItemSpan _getSpan(int i) =>
+        config.spanBuilder?.call(i, itemList[i]) ?? const GridItemSpan();
+
+    final rows = <List<_PlacedItem>>[];
+
+    int rowIndex = 0;
+    int itemIndex = 0;
+
+    while (itemIndex < itemList.length) {
+      final rowItems = <_PlacedItem>[];
+
+      int col = 0;
+      while (col < crossAxisCount && itemIndex < itemList.length) {
+        if (occupied[Offset(col.toDouble(), rowIndex.toDouble())] == true) {
+          col++;
+          continue;
+        }
+
+        final span = _getSpan(itemIndex);
+
+        if (col + span.crossAxisSpan > crossAxisCount) break;
+
+        // mark occupied cells
+        for (int dx = 0; dx < span.crossAxisSpan; dx++) {
+          for (int dy = 0; dy < span.mainAxisSpan; dy++) {
+            occupied[Offset((col + dx).toDouble(), (rowIndex + dy).toDouble())] =
+            true;
+          }
+        }
+
+        final width = cellWidth * span.crossAxisSpan +
+            config.crossAxisSpacing * (span.crossAxisSpan - 1);
+
+        final height = cellWidth * span.mainAxisSpan +
+            config.mainAxisSpacing * (span.mainAxisSpan - 1);
+
+        rowItems.add(_PlacedItem(
+          widget: widget.gridItemBuilder?.call(
+            context,
+            itemIndex,
+            group,
+            itemList[itemIndex],
+            width,
+          ) ??
+              Text(itemList[itemIndex].toString()),
+          width: width,
+          height: height,
+          crossAxisSpan: span.crossAxisSpan,
+        ));
+
+        col += span.crossAxisSpan;
+        itemIndex++;
+      }
+
+      rows.add(rowItems);
+      rowIndex++;
+    }
+
+    return SliverList.separated(
+      itemCount: rows.length,
+      itemBuilder: (context, row) {
+        final rowItems = rows[row];
+        if (rowItems.isEmpty) return const SizedBox.shrink();
+
+        final rowHeight =
+        rowItems.map((e) => e.height).reduce((a, b) => a > b ? a : b);
+
+        final children = [
+          for (int i = 0; i < rowItems.length; i++)
+            Padding(
+              padding: EdgeInsets.only(
+                right: (i < rowItems.length - 1) ? config.crossAxisSpacing : 0,
+              ),
+              child: SizedBox(
+                width: rowItems[i].width,
+                height: rowHeight, // align all items in this row
+                child: rowItems[i].widget,
+              ),
+            )
+        ];
+
+        final rowWidget = Row(
+          mainAxisAlignment: config.mainAxisAlignment,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        );
+
+        if (!config.intrinsicHeight) return rowWidget;
+
+        return Table(
+          children: [
+            TableRow(children: [
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.intrinsicHeight,
+                child: rowWidget,
+              )
+            ])
+          ],
+        );
+      },
+      separatorBuilder: (context, index) =>
+          SizedBox(height: config.mainAxisSpacing),
+      findChildIndexCallback: config.findChildIndexCallback,
+      addSemanticIndexes: config.addSemanticIndexes,
+      addRepaintBoundaries: config.addRepaintBoundaries,
+      addAutomaticKeepAlives: config.addAutomaticKeepAlives,
+    );
+  }
+
   Widget _buildGridView(BuildContext context, int index, C group,
       List<T> itemList, BoxConstraints constraints) {
     if (widget.gridViewConfig == null) {
@@ -945,9 +1066,22 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
           .jumpTo(_observerController.controller!.position.pixels);
 
     // set to last item index if the index provided is more than list length
-    final itemLength =
+    var itemLength =
         groupDictionary[groupDictionary.keys.elementAt(groupIndex)]?.length ??
             0;
+
+    if(widget.gridViewConfig != null){
+      //Update itemLength for gridview
+      itemLength = itemLength ~/ widget.gridViewConfig!.crossAxisCount;
+
+      //Update itemIndex for gridview
+      if(itemIndex != null){
+        itemIndex = itemIndex ~/ widget.gridViewConfig!.crossAxisCount;
+      }
+    }
+
+    // Update index if over length
+    print("RowIndex: $itemIndex, RowLength: $itemLength");
     if (itemIndex != null && itemLength > 0 && itemIndex >= itemLength) {
       itemIndex = itemLength - 1;
     }
@@ -963,12 +1097,10 @@ class _GroupListPlusState<T, C> extends State<GroupListPlus<T, C>>
               _horizontalGroupKey.currentContext?.size?.height ?? 0;
           if (itemIndex == 0 || itemIndex == null)
             additionalOffset += widget.subListPadding.top;
+
           if (widget.gridViewConfig != null && itemIndex != null) {
-            // for fixed cross axis can ez calculate if item index more than cross count
-            // if next line then we need to add additional offset for auto scroll
-            if ((itemIndex + 1) > widget.gridViewConfig!.crossAxisCount) {
-              additionalOffset += widget.gridViewConfig!.mainAxisSpacing;
-            }
+            //Add spacing for gridview item
+            additionalOffset += widget.gridViewConfig!.mainAxisSpacing;
           }
 
           //print(additionalOffset);
@@ -1156,7 +1288,7 @@ class SliverScrollUtil {
   }
 }
 
-class GridViewConfig {
+class GridViewConfig<T> {
   final int crossAxisCount;
   final double crossAxisSpacing;
   final double mainAxisSpacing;
@@ -1167,6 +1299,9 @@ class GridViewConfig {
   final MainAxisAlignment mainAxisAlignment;
   final CrossAxisAlignment crossAxisAlignment;
   final bool intrinsicHeight;
+
+  /// Get span for an item (like 2×2)
+  final GridItemSpan Function(int index, T item)? spanBuilder;
 
   GridViewConfig(
       {required this.crossAxisCount,
@@ -1179,5 +1314,28 @@ class GridViewConfig {
       this.mainAxisAlignment = MainAxisAlignment.start,
       this.crossAxisAlignment = CrossAxisAlignment.start,
         this.intrinsicHeight = false,
+        this.spanBuilder,
       });
+}
+
+class GridItemSpan{
+  final int crossAxisSpan;
+  final int mainAxisSpan;
+
+  const GridItemSpan({this.crossAxisSpan = 1, this.mainAxisSpan = 1});
+}
+
+
+class _PlacedItem {
+  final Widget widget;
+  final double width;
+  final double height;
+  final int crossAxisSpan;
+
+  _PlacedItem({
+    required this.widget,
+    required this.width,
+    required this.height,
+    required this.crossAxisSpan,
+  });
 }

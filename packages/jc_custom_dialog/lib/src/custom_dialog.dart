@@ -11,10 +11,11 @@ class CustomDialog{
   CustomDialog._();
   static const Color primaryColor = Colors.blue;
   static const DialogSettings defaultSettings = DialogSettings();
-  static final Queue<Completer<BuildContext>> _contextQueue = Queue();
+  static final Queue<DialogCompleter> _contextQueue = Queue();
   static final SimpleSequenceTaskManager _sequenceHideTask = SimpleSequenceTaskManager();
   static GlobalKey<NavigatorState>? _globalKey;
   static GlobalKey<ScaffoldMessengerState>? _scaffoldMessengerKey;
+  static String Function()? routeNameCallback;
 
   static void setKey(GlobalKey<NavigatorState> globalKey){
     _globalKey = globalKey;
@@ -23,6 +24,13 @@ class CustomDialog{
   static void setScaffoldMessengerKey(GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey){
     _scaffoldMessengerKey = scaffoldMessengerKey;
   }
+
+  /// Provide route name can help dialog to hide the correct dialog
+  static void setRouteNameCallback({required String Function() callback}){
+    routeNameCallback = callback;
+  }
+
+  static bool isDialogShown(String tag) => _contextQueue.any((e) => e.tag == tag);
 
   static ScaffoldMessengerState? get scaffoldMessenger => _scaffoldMessengerKey?.currentState;
 
@@ -58,15 +66,24 @@ class CustomDialog{
   }
 
   static Future show({DialogSettings settings = defaultSettings, BuildContext? context}) async {
-    if(_globalKey?.currentContext == null && context == null){
-      print('Unable to show dialog without context');
+    context ??= _globalKey?.currentContext;
+    if(context == null){
+      _debugLog('Unable to show dialog without context');
       return;
     }
 
-    Completer<BuildContext> completer = Completer();
+    if(settings.tag != null && isDialogShown(settings.tag!)){
+      _debugLog("Duplicate dialog tag(${settings.tag})!!");
+      return null;
+    }
+
+    DialogCompleter completer = DialogCompleter(
+      routeName: routeNameCallback?.call(),
+      tag: settings.tag,
+    );
     if(settings.addToQueue) {
       _contextQueue.add(completer);
-      _debugLog("Add completer to queue, len: ${_contextQueue.length}");
+      _debugLog("Add $completer to queue, len: ${_contextQueue.length}");
     }
 
     completer.future.then((context){
@@ -84,7 +101,7 @@ class CustomDialog{
         builder: (c){
           WidgetsBinding.instance.addPostFrameCallback((d){
             if(!_contextQueue.contains(completer) && settings.addToQueue) return;
-            _debugLog("Complete completer with context, mounted: ${c.mounted}");
+            _debugLog("Complete $completer with context, mounted: ${c.mounted}");
             if(!completer.isCompleted) completer.complete(c);
           });
           return _buildDialog(
@@ -93,7 +110,7 @@ class CustomDialog{
             onPop: () {
               _contextQueue.remove(completer);
               _debugLog(
-                  "Remove completer from queue, len: ${_contextQueue.length}");
+                  "Remove $completer from queue, len: ${_contextQueue.length}");
             }
           );
         }
@@ -104,39 +121,56 @@ class CustomDialog{
     return result;
   }
 
-  static Future<void> hide({bool absolute = false}) async {
+  static Future<void> hide({bool absolute = false, String? tag}) async {
     _debugLog("Register hide task");
-    return _sequenceHideTask.register(Future(() async => _hide(absolute: absolute))).future;
+    return _sequenceHideTask.register(Future(() async => _hide(absolute: absolute, tag: tag))).future;
   }
 
-  static Future<void> _hide({bool absolute = false, bool sync = false}) async {
+  static Future<void> _hide({bool absolute = false, bool sync = false, String? tag}) async {
     _debugLog("Start hide task, len: ${_contextQueue.length}");
-    if(absolute){
-      final List<Completer<BuildContext>> toKeep = [];
-      for(var item in _contextQueue){
-        if(item.isCompleted){
-          final context = await item.future;
-          if(!context.mounted) continue;
-        }
-        toKeep.add(item);
+    DialogCompleter? completer;
+
+    if(tag != null){
+      final found = _contextQueue.where((e) => e.tag == tag);
+      if(found.isNotEmpty){
+        completer = found.last;
+        _contextQueue.remove(completer);
       }
-      _contextQueue.clear();
-      _contextQueue.addAll(toKeep);
+    }
+    else{
+      if (absolute) {
+        final List<DialogCompleter> toKeep = [];
+        for (var item in _contextQueue) {
+          if (item.isCompleted) {
+            final context = await item.future;
+            if (!context.mounted) continue;
+          }
+          toKeep.add(item);
+        }
+        _contextQueue.clear();
+        _contextQueue.addAll(toKeep);
+      }
+
+      if (_contextQueue.isEmpty) return;
+      final completedQueue = sync
+          ? _contextQueue.where((e) => e.isCompleted)
+          : <DialogCompleter>[];
+
+      if (sync && completedQueue.isEmpty) return;
+
+      completer = sync ? completedQueue.last : _contextQueue.removeLast();
+      if (sync) _contextQueue.remove(completer);
     }
 
-    if(_contextQueue.isEmpty) return;
-    final completedQueue = sync ? _contextQueue.where((e) => e.isCompleted) : <Completer<BuildContext>>[];
+    if(completer == null) {
+      _debugLog("DialogCompleter not found");
+      return;
+    }
 
-    if(sync && completedQueue.isEmpty) return;
-
-    final completer = sync ? completedQueue.first : _contextQueue.removeFirst();
-
-    if(sync) _contextQueue.remove(completer);
-
-    _debugLog("Await completer context");
+    _debugLog("Await $completer context");
     final context = await completer.future;
-    _debugLog("Get context from completer, mounted: ${context.mounted}");
-    if(context.mounted){
+    _debugLog("Get context from $completer, mounted: ${context.mounted}");
+    if (context.mounted) {
       Navigator.of(context).pop(false);
     }
   }
@@ -292,6 +326,7 @@ class CustomDialog{
 }
 
 class DialogSettings{
+  final String? tag;
   final Duration duration;
   ///Operation to done before dismiss, will ignore duration when this is provided
   final List<Future Function()> dismissOperation;
@@ -320,6 +355,7 @@ class DialogSettings{
 
 
   const DialogSettings({
+    this.tag,
     this.duration = Duration.zero,
     this.dismissOperation = const [],
     this.onDismiss,
@@ -411,6 +447,7 @@ class DialogSettings{
   }
 
   DialogSettings copyWith({
+    String? tag,
     Duration? duration,
     List<Future Function()>? dismissOperation,
     VoidCallback? onDismiss,
@@ -437,6 +474,7 @@ class DialogSettings{
     bool? fullScreen,
   }) {
     return DialogSettings(
+      tag: tag ?? this.tag,
       duration: duration ?? this.duration,
       dismissOperation: dismissOperation ?? this.dismissOperation,
       onDismiss: onDismiss ?? this.onDismiss,
@@ -462,5 +500,39 @@ class DialogSettings{
       stretchCrossAxis: stretchCrossAxis ?? this.stretchCrossAxis,
       fullScreen: fullScreen ?? this.fullScreen,
     );
+  }
+}
+
+class DialogCompleter{
+  final String? tag;
+  final String? routeName;
+  final Completer<BuildContext> _completer;
+  final int _timeStamp;
+
+  Future<BuildContext> get future => _completer.future;
+  bool get isCompleted => _completer.isCompleted;
+  void complete(BuildContext context) => _completer.complete(context);
+
+  DialogCompleter({this.tag, this.routeName}) : _completer = Completer(), _timeStamp = DateTime.now().millisecondsSinceEpoch;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is DialogCompleter &&
+              runtimeType == other.runtimeType &&
+              tag == other.tag &&
+              routeName == other.routeName &&
+              _timeStamp == other._timeStamp;
+
+  @override
+  int get hashCode => Object.hash(tag, routeName, _timeStamp);
+
+  @override
+  String toString() {
+    return "DialogCompleter: ${{
+      "tag": tag,
+      "routeName": routeName,
+      "timeStamp": _timeStamp,
+    }}";
   }
 }

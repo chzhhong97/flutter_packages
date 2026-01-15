@@ -34,6 +34,7 @@ class TabBarViewListView<T, G> extends StatefulWidget{
     this.onRefresh,
     this.refreshIndicatorSettings = const RefreshIndicatorSettings(),
     this.hideSingleTabBar = false,
+    this.emptyTabBarView,
 
     this.isScrollable = false,
     this.tabBarPadding,
@@ -143,6 +144,7 @@ class TabBarViewListView<T, G> extends StatefulWidget{
   final bool useSliver;
   final ScrollPhysics? physics;
   final bool hideSingleTabBar;
+  final WidgetBuilder? emptyTabBarView;
   //endregion
 
   @override
@@ -315,6 +317,7 @@ class _TabBarViewListViewState<T, G> extends State<TabBarViewListView<T, G>>{
       } : null,
       tabBarDecoration: widget.tabBarDecoration,
       hideSingleTabBar: widget.hideSingleTabBar,
+      emptyTabBarView: widget.emptyTabBarView,
     );
   }
 
@@ -399,6 +402,7 @@ class TabBarViewPlus extends StatefulWidget{
     this.onRefresh,
     this.refreshIndicatorSettings = const RefreshIndicatorSettings(),
     this.hideSingleTabBar = false,
+    this.emptyTabBarView,
 
     this.isScrollable = false,
     this.tabBarPadding,
@@ -462,7 +466,7 @@ class TabBarViewPlus extends StatefulWidget{
 
   //region TabBarViewPlus
   final int itemCount;
-  final Widget Function(BuildContext context, int index)? tabBarBuilder;
+  final IndexedWidgetBuilder? tabBarBuilder;
   ///Can provide decoration for TabBar, e.g background color
   final BoxDecoration Function(BuildContext context)? tabBarDecoration;
   ///Provide Sliver Widget if useSliver is true,
@@ -490,6 +494,9 @@ class TabBarViewPlus extends StatefulWidget{
   final bool useSliver;
 
   final bool hideSingleTabBar;
+
+  ///Widget to build when provided item count < 1
+  final WidgetBuilder? emptyTabBarView;
   //endregion
 
   @override
@@ -554,6 +561,7 @@ class _TabBarViewPlusState extends State<TabBarViewPlus> with TickerProviderStat
   Widget _buildSliver(BuildContext context){
 
     final scrollView = NestedScrollView(
+      physics: widget.onRefresh != null ? const AlwaysScrollableScrollPhysics() : null,
       headerSliverBuilder: (context, innerBoxIsScrolled){
         return [
           SliverOverlapAbsorber(
@@ -575,10 +583,14 @@ class _TabBarViewPlusState extends State<TabBarViewPlus> with TickerProviderStat
       body: _buildTabBarView(context),
     );
 
+    if(widget.onRefresh == null){
+      return scrollView;
+    }
+
     return CustomPullToRefresh(
         onRefresh: widget.onRefresh,
         settings: widget.refreshIndicatorSettings.copyWith(
-            depths: [2]
+            depths: [0, 2]
         ),
         child: scrollView
     );
@@ -622,15 +634,21 @@ class _TabBarViewPlusState extends State<TabBarViewPlus> with TickerProviderStat
     ),
   );
 
-  Widget _buildTabBarView(BuildContext context) => TabBarView(
-    controller: _tabController,
-    physics: widget.tabBarViewPhysics,
-    clipBehavior: widget.clipBehavior,
-    children: List.generate(
-      widget.itemCount,
-          (index) => _buildTabBarViewItem(context, index),
-    ),
-  );
+  Widget _buildTabBarView(BuildContext context){
+    if(widget.itemCount <= 0){
+      return widget.emptyTabBarView?.call(context) ?? const SizedBox();
+    }
+
+    return TabBarView(
+      controller: _tabController,
+      physics: widget.tabBarViewPhysics,
+      clipBehavior: widget.clipBehavior,
+      children: List.generate(
+        widget.itemCount,
+            (index) => _buildTabBarViewItem(context, index),
+      ),
+    );
+  }
 
   Widget _buildTabBarViewItem(BuildContext context, int index){
 

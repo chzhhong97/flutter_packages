@@ -35,6 +35,8 @@ class _CustomPullToRefreshState extends State<CustomPullToRefresh> {
           controller: widget.settings.controller,
           backgroundColor: widget.settings.backgroundColor,
           displacement: widget.settings.height,
+          edgeOffset: widget.settings.edgeOffset ?? (-CustomMaterialIndicator.defaultIndicatorSize.width / 2),
+          indicatorSize: widget.settings.materialIndicatorSize ?? CustomMaterialIndicator.defaultIndicatorSize,
           indicatorBuilder: (context, controller) {
             if (widget.settings.indicatorBuilder != null) {
               return widget.settings.indicatorBuilder?.call(
@@ -169,6 +171,10 @@ class RefreshIndicatorSettings {
   final Color? backgroundColor;
   final List<int> depths;
   final bool useMaterial;
+  /// Edge offset for material indicator
+  final double? edgeOffset;
+  /// Size for material indicator
+  final Size? materialIndicatorSize;
 
   const RefreshIndicatorSettings({
     this.height = 150.0,
@@ -181,6 +187,8 @@ class RefreshIndicatorSettings {
     this.backgroundColor,
     this.depths = const [],
     this.useMaterial = false,
+    this.edgeOffset,
+    this.materialIndicatorSize,
   });
 
   RefreshIndicatorSettings copyWith({
@@ -196,6 +204,8 @@ class RefreshIndicatorSettings {
     Color? backgroundColor,
     List<int>? depths,
     bool? useMaterial,
+    double? edgeOffset,
+    Size? materialIndicatorSize,
   }) {
     return RefreshIndicatorSettings(
       height: height ?? this.height,
@@ -208,6 +218,8 @@ class RefreshIndicatorSettings {
       backgroundColor: backgroundColor ?? this.backgroundColor,
       depths: depths ?? this.depths,
       useMaterial: useMaterial ?? this.useMaterial,
+      edgeOffset: edgeOffset ?? this.edgeOffset,
+      materialIndicatorSize: materialIndicatorSize ?? this.materialIndicatorSize,
     );
   }
 }
